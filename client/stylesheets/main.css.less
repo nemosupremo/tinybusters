@@ -1,0 +1,171 @@
+html{
+  height: 100%;
+}
+body {
+  min-height: 100%;
+}
+.row-m {
+	min-height: 100%;
+    height: 100%;
+    width: 100%;
+    margin-right: 0;
+    margin-left: -5px;
+}
+.main {
+	min-height: 100%;
+	height: 100%;
+	padding-left:0;
+}
+.topnav {
+	background-color: #333;
+	color: #fdfdfd;
+	//height: 40px;
+	h1 {
+		font-size: 28px;
+		margin: 4px;
+		text-transform: uppercase;
+		font-weight: 700;
+		letter-spacing: 2px;
+	}
+	.header {
+		padding: 0px 60px;
+
+	}
+
+	.nav-links {
+		margin: 0;
+		a {
+			color: #fdfdfd;
+			text-transform: uppercase;
+			font-family: "Raleway";
+			letter-spacing: 1px;
+			font-weight: 600;
+			line-height: 1.1;
+			padding-top: 10px;
+			padding-bottom: 12px;
+		}
+		a:hover {
+			background-color: #fdfdfd;
+			color: #333;
+			text-decoration: none;
+
+		}
+	}
+}
+.chat {
+	//display:inline-block;
+	//border-left: 2px solid #000;
+	//float:right;
+	//width: 13.666666666666664%;
+	display:block;
+	padding-left: 0;
+	padding-right: 0;
+    height: 100%;
+
+	input {
+		border-radius: 0;
+		font-size:12px;
+		height: 31px;
+		padding: 3px 3px;
+		line-height: 1.1;
+	}
+	button {
+		border-radius: 0;
+		font-size:12px;
+	}
+
+	h1 {
+		font-family: "Raleway";
+		font-weight: 600;
+		font-size: 28px;
+		margin-top: 8px;
+		padding-bottom: 0;
+		margin-bottom: 0;
+	}
+	h2 {
+		font-family: "Raleway";
+		text-align: right;
+		font-weight: 600;
+		font-size: 14px;
+		padding:0;
+		margin:0;
+		text-transform: uppercase;
+	}
+	h2:before {
+		content: "\00BB ";
+	}
+
+	.chatlist {
+		list-style: none;
+		font-size: 11px;
+		padding: 0 4px;
+		margin:0;
+		height: 75%;
+		overflow-y: auto;
+		.server {
+			color: #777;
+			text-align: right;
+		}
+		background-color: #fff;
+		border: 1px solid #bdc3c7;
+		border-bottom: 0 solid #bdc3c7;
+		//border-left: 0 solid #bdc3c7;
+		li {
+			padding: 3px 0;
+		}
+		.name {
+			font-weight: 600;
+		}
+	}
+}
+.fill {
+    min-height: 100%;
+    height: 100%;
+}
+
+@brand-inverse:         #333;
+@btn-inverse-color:              #fff;
+@btn-inverse-bg:                 @brand-inverse;
+@btn-inverse-border:             darken(@btn-inverse-bg, 5%);
+
+.button-variant(@color; @background; @border) {
+  color: @color;
+  background-color: @background;
+  border-color: @border;
+
+  &:hover,
+  &:focus,
+  &:active,
+  &.active,
+  .open .dropdown-toggle& {
+    color: @color;
+    background-color: darken(@background, 8%);
+        border-color: darken(@border, 12%);
+  }
+  &:active,
+  &.active,
+  .open .dropdown-toggle& {
+    background-image: none;
+  }
+  &.disabled,
+  &[disabled],
+  fieldset[disabled] & {
+    &,
+    &:hover,
+    &:focus,
+    &:active,
+    &.active {
+      background-color: @background;
+          border-color: @border;
+    }
+  }
+
+  .badge {
+    color: @background;
+    background-color: @color;
+  }
+}
+
+.btn-inverse {
+  .button-variant(@btn-inverse-color; @btn-inverse-bg; @btn-inverse-border);
+}
