@@ -34,7 +34,9 @@ func NewClientServer(conf ServerConfig) *ClientServer {
 
 func (c *ClientServer) Serve() {
 	log.Println("[Client] Starting client server on", fmt.Sprintf("%s:%d", c.conf.HostName, c.conf.ClientPort))
-	http.ListenAndServe(fmt.Sprintf("%s:%d", c.conf.HostName, c.conf.ClientPort), c.m)
+	if e := http.ListenAndServe(fmt.Sprintf("%s:%d", c.conf.HostName, c.conf.ClientPort), c.m); e != nil {
+		log.Println("[Client] Failed to start client server on", fmt.Sprintf("%s:%d", c.conf.HostName, c.conf.ClientPort), e)
+	}
 }
 
 func (c *ClientServer) routes() {
@@ -102,6 +104,8 @@ func (c *ClientServer) clientAssets(directory string) martini.Handler {
 				cmd = exec.Command("coffee", "-sc")
 			} else if processor == PREPROCCESS_LESS {
 				cmd = exec.Command("lessc", "-")
+			} else {
+				panic("Invalid Preprocessor in clientAssets.")
 			}
 			if stdout, err := cmd.StdoutPipe(); err == nil {
 				if stdin, err := cmd.StdinPipe(); err == nil {

@@ -29,6 +29,14 @@ func main() {
 		}()
 	}
 
+	if config.GamePort != 0 {
+		log.Println("[Init] Starting GameServer...")
+		gs := server.NewGameServer(config)
+		go func() {
+			gs.Serve()
+		}()
+	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {

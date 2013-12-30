@@ -16,7 +16,8 @@ const (
 )
 
 type ServerConfig struct {
-	Mode string `yaml:mode`
+	Mode       string `yaml:mode`
+	ServerName string `yaml:name`
 
 	HostName   string `yaml:hostname`
 	GamePort   int    `yaml:gameport`
@@ -27,6 +28,10 @@ type ServerConfig struct {
 
 	CoffeePath string `yaml:coffee`
 	LessPath   string `yaml:less`
+
+	Slots int `yaml:slots`
+
+	Origin []string `yaml:origin`
 
 	Quit func()
 }
