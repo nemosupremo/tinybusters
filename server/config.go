@@ -15,7 +15,6 @@ const (
 
 	GAME_PORT   = 9001
 	CLIENT_PORT = 8080
-	INFO_PORT   = 8888
 
 	DEF_SLOTS = 0
 )
@@ -56,7 +55,6 @@ func ReadConfig() (ServerConfig, error) {
 		HostName:   "",
 		GamePort:   GAME_PORT,
 		ClientPort: CLIENT_PORT,
-		InfoPort:   INFO_PORT,
 
 		ClientAssets:      "./client",
 		CompiledAssetPath: "",
@@ -88,9 +86,6 @@ func ReadConfig() (ServerConfig, error) {
 		}
 		if Flags.ClientPort != CLIENT_PORT {
 			sc.ClientPort = Flags.ClientPort
-		}
-		if Flags.InfoPort != INFO_PORT {
-			sc.InfoPort = Flags.InfoPort
 		}
 	}
 
