@@ -19,6 +19,11 @@ func main() {
 		log.Println(err)
 		os.Exit(1)
 	}
+	defer func() {
+		for _, dir := range config.TmpDir {
+			os.RemoveAll(dir)
+		}
+	}()
 	config.Quit = exitFunc
 
 	if config.ClientPort != 0 {

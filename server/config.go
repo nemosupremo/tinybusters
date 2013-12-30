@@ -10,6 +10,9 @@ const (
 	MODE_DEVELOPMENT = "development"
 	MODE_PRODUCTION  = "production"
 
+	STORE_NONE    = "none"
+	STORE_LEVELDB = "leveldb"
+
 	GAME_PORT   = 9001
 	CLIENT_PORT = 8080
 	INFO_PORT   = 8888
@@ -26,14 +29,21 @@ type ServerConfig struct {
 	ClientPort int    `yaml:clientport`
 	InfoPort   int    `yaml:infoport`
 
-	ClientAssets string `yaml:clientassets`
+	ClientAssets      string `yaml:clientassets`
+	CompiledAssetPath string `yaml:compiledassets`
 
 	CoffeePath string `yaml:coffee`
 	LessPath   string `yaml:less`
+	UglifyPath string `yaml:uglify`
 
 	Slots int `yaml:slots`
 
 	Origin []string `yaml:origin`
+
+	Datastore string `yaml:datastore`
+	LevelPath string `yaml:level_path`
+
+	TmpDir []string
 
 	Quit func()
 }
@@ -48,12 +58,19 @@ func ReadConfig() (ServerConfig, error) {
 		ClientPort: CLIENT_PORT,
 		InfoPort:   INFO_PORT,
 
-		ClientAssets: "./client",
+		ClientAssets:      "./client",
+		CompiledAssetPath: "",
 
 		CoffeePath: "/usr/local/bin/coffee",
-		LessPath:   "/usr/bin/less",
+		LessPath:   "/usr/local/bin/lessc",
+		UglifyPath: "/usr/local/bin/uglifyjs",
+
+		Datastore: STORE_LEVELDB,
+		LevelPath: "",
 
 		Slots: DEF_SLOTS,
+
+		TmpDir: make([]string, 0, 2),
 	}
 
 	readFlags := func() {
@@ -75,13 +92,35 @@ func ReadConfig() (ServerConfig, error) {
 		if Flags.InfoPort != INFO_PORT {
 			sc.InfoPort = Flags.InfoPort
 		}
+	}
 
+	makeDirs := func() {
+		if sc.Datastore == STORE_LEVELDB {
+			if sc.LevelPath == "" {
+				var e error
+				if sc.LevelPath, e = ioutil.TempDir("", "tblvl"); e != nil {
+					sc.Datastore = STORE_NONE
+				} else {
+					sc.TmpDir = append(sc.TmpDir, sc.LevelPath)
+				}
+			}
+		}
+
+		if sc.CompiledAssetPath == "" {
+			var e error
+			if sc.CompiledAssetPath, e = ioutil.TempDir("", "tbc"); e != nil {
+				sc.CompiledAssetPath = ""
+			} else {
+				sc.TmpDir = append(sc.TmpDir, sc.CompiledAssetPath)
+			}
+		}
 	}
 
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		log.Printf("[Init] Failed to open config file %s. Using default settings.", configFile)
 		readFlags()
+		makeDirs()
 		return sc, nil
 	}
 
@@ -91,5 +130,6 @@ func ReadConfig() (ServerConfig, error) {
 	}
 
 	readFlags()
+	makeDirs()
 	return sc, nil
 }

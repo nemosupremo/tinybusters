@@ -22,6 +22,7 @@ type serverInfo struct {
 	Users    int64  `json:users`
 	Slots    int    `json:slots`
 	Name     string `json:name`
+	Mode     string `json:mode`
 }
 
 type GameServer struct {
@@ -64,6 +65,7 @@ func (g *GameServer) getServerInfo() serverInfo {
 		Users:    g.NoUsers,
 		Slots:    g.conf.Slots,
 		Name:     sn,
+		Mode:     g.conf.Mode,
 	}
 
 	return si
