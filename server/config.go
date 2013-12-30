@@ -20,41 +20,43 @@ const (
 )
 
 type ServerConfig struct {
-	Mode       string `yaml:mode`
-	ServerName string `yaml:name`
+	Mode       string `yaml:"mode"`
+	ServerName string `yaml:"name"`
 
-	HostName   string `yaml:hostname`
-	GamePort   int    `yaml:gameport`
-	ClientPort int    `yaml:clientport`
-	InfoPort   int    `yaml:infoport`
+	HostName      string `yaml:"hostname"`
+	ListenAddress string `yaml:"listen_address"`
+	GamePort      int    `yaml:"gameport"`
+	ClientPort    int    `yaml:"clientport"`
 
-	ClientAssets      string `yaml:clientassets`
-	CompiledAssetPath string `yaml:compiledassets`
+	ClientAssets      string `yaml:"clientassets"`
+	CompiledAssetPath string `yaml:"compiledassets"`
 
-	CoffeePath string `yaml:coffee`
-	LessPath   string `yaml:less`
-	UglifyPath string `yaml:uglify`
+	CoffeePath string `yaml:"coffee"`
+	LessPath   string `yaml:"less"`
+	UglifyPath string `yaml:"uglify"`
 
-	Slots int `yaml:slots`
+	Slots int `yaml:"slots"`
 
-	Origin []string `yaml:origin`
+	Origin []string `yaml:"origin"`
 
-	Datastore string `yaml:datastore`
-	LevelPath string `yaml:level_path`
+	Datastore string `yaml:"datastore"`
+	LevelPath string `yaml:"level_path"`
 
-	TmpDir []string
+	TmpDir []string `yaml:"-"`
 
-	Quit func()
+	Quit func() `yaml:"-"`
 }
 
 func ReadConfig() (ServerConfig, error) {
 	configFile := Flags.ConfigFile
 
 	sc := ServerConfig{
-		Mode:       MODE_DEVELOPMENT,
-		HostName:   "",
-		GamePort:   GAME_PORT,
-		ClientPort: CLIENT_PORT,
+		Mode: MODE_DEVELOPMENT,
+
+		ListenAddress: "",
+		HostName:      "",
+		GamePort:      GAME_PORT,
+		ClientPort:    CLIENT_PORT,
 
 		ClientAssets:      "./client",
 		CompiledAssetPath: "",

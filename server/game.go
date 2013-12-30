@@ -17,12 +17,13 @@ const (
 )
 
 type serverInfo struct {
-	Hostname string `json:hostname`
-	Port     int    `json:port`
-	Users    int64  `json:users`
-	Slots    int    `json:slots`
-	Name     string `json:name`
-	Mode     string `json:mode`
+	Hostname string    `json:"hostname"`
+	Port     int       `json:"port"`
+	Users    int64     `json:"users"`
+	Slots    int       `json:"slots"`
+	Name     string    `json:"name"`
+	Mode     string    `json:"mode"`
+	Updated  time.Time `json:"updated"`
 }
 
 type GameServer struct {
@@ -53,6 +54,12 @@ func (g *GameServer) serverInfo(w http.ResponseWriter, r *http.Request) {
 func (g *GameServer) getServerInfo() serverInfo {
 	hs := g.conf.HostName
 	if hs == "" {
+		hs = g.conf.ListenAddress
+		if hs == "" || hs == "0.0.0.0" || hs == "0:0:0:0:0:0:0:0" || hs == "::" {
+			hs, _ = os.Hostname()
+		}
+	}
+	if hs == "{hostname}" {
 		hs, _ = os.Hostname()
 	}
 	sn := g.conf.ServerName
@@ -66,8 +73,8 @@ func (g *GameServer) getServerInfo() serverInfo {
 		Slots:    g.conf.Slots,
 		Name:     sn,
 		Mode:     g.conf.Mode,
+		Updated:  time.Now(),
 	}
-
 	return si
 }
 
@@ -147,7 +154,7 @@ func (g *GameServer) Serve() {
 
 	g.GameLobby = NewLobby()
 	go g.GameLobby.Listen()
-	if e := http.ListenAndServe(fmt.Sprintf("%s:%d", g.conf.HostName, g.conf.GamePort), g.sm); e != nil {
+	if e := http.ListenAndServe(fmt.Sprintf("%s:%d", g.conf.ListenAddress, g.conf.GamePort), g.sm); e != nil {
 		log.Println("[Server] Failed to start game server on", fmt.Sprintf("%s:%d", g.conf.HostName, g.conf.GamePort), e)
 	}
 }

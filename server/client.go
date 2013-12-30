@@ -40,7 +40,7 @@ func NewClientServer(conf ServerConfig) *ClientServer {
 
 func (c *ClientServer) Serve() {
 	log.Println("[Client] Starting client server on", fmt.Sprintf("%s:%d", c.conf.HostName, c.conf.ClientPort))
-	if e := http.ListenAndServe(fmt.Sprintf("%s:%d", c.conf.HostName, c.conf.ClientPort), c.m); e != nil {
+	if e := http.ListenAndServe(fmt.Sprintf("%s:%d", c.conf.ListenAddress, c.conf.ClientPort), c.m); e != nil {
 		log.Println("[Client] Failed to start client server on", fmt.Sprintf("%s:%d", c.conf.HostName, c.conf.ClientPort), e)
 	}
 }
