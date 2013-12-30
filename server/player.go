@@ -51,7 +51,7 @@ func (p *Player) Listen() {
 
 func (p *Player) Unregister(group, code int) {
 	p.readerl.RLock()
-	for i, reader := range p.readers {
+	for _, reader := range p.readers {
 		defer reader.Unregister(p, group, code)
 	}
 	p.readerl.RUnlock()
