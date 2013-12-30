@@ -9,6 +9,11 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
+)
+
+const (
+	CLOSE_NO_SLOTS = 4502
 )
 
 type serverInfo struct {
@@ -95,14 +100,6 @@ func (g *GameServer) serverConnect(w http.ResponseWriter, r *http.Request) {
 			doE(400, "Invalid name.")
 		}
 
-		if g.conf.Slots != 0 {
-			// TODO: Mutex
-			if g.NoUsers+1 > int64(g.conf.Slots) {
-				doE(503, "No available slots.")
-				return
-			}
-		}
-
 		ws, err := websocket.Upgrade(w, r, nil, 1024, 1024)
 		if _, ok := err.(websocket.HandshakeError); ok {
 			doE(405, "Not a websocket handshake.")
@@ -113,11 +110,20 @@ func (g *GameServer) serverConnect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if g.conf.Slots != 0 {
+			if atomic.AddInt64(&g.NoUsers, 1) > int64(g.conf.Slots) {
+				ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(CLOSE_NO_SLOTS, "No available slots."), time.Now().Add(10*time.Second))
+				atomic.AddInt64(&g.NoUsers, -1)
+				return
+			}
+		} else {
+			atomic.AddInt64(&g.NoUsers, 1)
+		}
+		defer atomic.AddInt64(&g.NoUsers, -1)
+
 		player := NewPlayer(ws, pn)
 		g.GameLobby.Register(player)
-		atomic.AddInt64(&g.NoUsers, 1)
 		player.Listen()
-		atomic.AddInt64(&g.NoUsers, -1)
 		return
 	}
 	doE(404, "Not found.")

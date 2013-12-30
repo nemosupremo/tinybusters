@@ -61,8 +61,13 @@ if window["WebSocket"]
   conn.binaryType = "arraybuffer";
   conn.onopen = () ->
     $(".chatlist").empty()
+  conn.onerror = (evt) ->
+    console.log evt
   conn.onclose = (evt) ->
-    $(".chatlist").append(template.server(message: "Server connection closed."))
+    if evt.code == 4502
+      $(".chatlist").append(template.server(message: "Failed to join server: No available slots."))
+    else
+      $(".chatlist").append(template.server(message: "Server connection closed."))
   conn.onmessage = (evt) ->
     mp = msgpack.decode(evt.data)
     if mp.s

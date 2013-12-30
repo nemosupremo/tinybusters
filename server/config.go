@@ -13,6 +13,8 @@ const (
 	GAME_PORT   = 9001
 	CLIENT_PORT = 8080
 	INFO_PORT   = 8888
+
+	DEF_SLOTS = 0
 )
 
 type ServerConfig struct {
@@ -50,6 +52,8 @@ func ReadConfig() (ServerConfig, error) {
 
 		CoffeePath: "/usr/local/bin/coffee",
 		LessPath:   "/usr/bin/less",
+
+		Slots: DEF_SLOTS,
 	}
 
 	readFlags := func() {
