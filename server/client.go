@@ -179,7 +179,7 @@ func (c *ClientServer) clientAssets(directory string) martini.Handler {
 						mod = c.start
 					}
 				}
-				if processor == PREPROCCESS_COFFEE && c.conf.Mode == MODE_PRODUCTION {
+				if processor == PREPROCCESS_COFFEE && c.conf.Mode == MODE_PRODUCTION && c.conf.UglifyPath != "" {
 					out, err = c.preprocessFile(exec.Command(c.conf.UglifyPath, "-"), bytes.NewReader(out))
 					if err != nil {
 						if out == nil {
