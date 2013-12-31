@@ -36,10 +36,13 @@ func main() {
 
 	if config.GamePort != 0 {
 		log.Println("[Init] Starting GameServer...")
-		gs := server.NewGameServer(config)
-		go func() {
-			gs.Serve()
-		}()
+		if gs, err := server.NewGameServer(config); err == nil {
+			go func() {
+				gs.Serve()
+			}()
+		} else {
+			panic("Failed to start game server. (" + err.Error() + ")")
+		}
 	}
 
 	c := make(chan os.Signal, 1)

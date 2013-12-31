@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/gorilla/websocket"
+	"github.com/nemothekid/tinybusters/datastore"
 	"sync"
 	"time"
 )
@@ -25,7 +26,7 @@ type Player struct {
 	readers []PlayerReader
 	readerl *sync.RWMutex
 	ws      *websocket.Conn
-	Name    string
+	User    *datastore.User
 }
 
 type PlayerMessage struct {
@@ -33,13 +34,13 @@ type PlayerMessage struct {
 	Message []byte
 }
 
-func NewPlayer(ws *websocket.Conn, pn string) *Player {
+func NewPlayer(ws *websocket.Conn, u *datastore.User) *Player {
 	p := &Player{
 		writech: make(chan []byte, 512),
 		readers: make([]PlayerReader, 0, 64),
 		ws:      ws,
-		Name:    pn,
 		readerl: new(sync.RWMutex),
+		User:    u,
 	}
 	return p
 }

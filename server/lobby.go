@@ -18,14 +18,14 @@ func NewLobby() *Lobby {
 func (l *Lobby) Register(p *Player) {
 	l.Room.Register(p)
 	p.AddReader(l)
-	l.Broadcast(nil, ChatMessage(nil, fmt.Sprintf("Player %s joined the server.", p.Name)))
+	l.Broadcast(nil, ChatMessage(nil, fmt.Sprintf("Player %s joined the server.", p.User.Name)))
 }
 
 func (l *Lobby) Unregister(p *Player, group, code int) {
 	l.Room.Unregister(p, group, code)
 	p.RemoveReader(l)
 	if group == GROUP_ALL || group == l.Group() {
-		l.Broadcast(nil, ChatMessage(nil, fmt.Sprintf("Player %s left the server.", p.Name)))
+		l.Broadcast(nil, ChatMessage(nil, fmt.Sprintf("Player %s left the server.", p.User.Name)))
 	}
 }
 

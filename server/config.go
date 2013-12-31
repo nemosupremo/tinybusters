@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/nemothekid/tinybusters/datastore"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"log"
@@ -9,9 +10,6 @@ import (
 const (
 	MODE_DEVELOPMENT = "development"
 	MODE_PRODUCTION  = "production"
-
-	STORE_NONE    = "none"
-	STORE_LEVELDB = "leveldb"
 
 	GAME_PORT   = 9001
 	CLIENT_PORT = 8080
@@ -35,7 +33,8 @@ type ServerConfig struct {
 	LessPath   string `yaml:"less"`
 	UglifyPath string `yaml:"uglify"`
 
-	Slots int `yaml:"slots"`
+	Slots     int  `yaml:"slots"`
+	ForceAuth bool `yaml:"force_auth"`
 
 	Origin []string `yaml:"origin"`
 
@@ -60,12 +59,13 @@ func ReadConfig() (ServerConfig, error) {
 
 		ClientAssets:      "./client",
 		CompiledAssetPath: "",
+		ForceAuth:         false,
 
 		CoffeePath: "/usr/local/bin/coffee",
 		LessPath:   "/usr/local/bin/lessc",
 		UglifyPath: "/usr/local/bin/uglifyjs",
 
-		Datastore: STORE_LEVELDB,
+		Datastore: datastore.STORE_LEVELDB,
 		LevelPath: "",
 
 		Slots: DEF_SLOTS,
@@ -92,11 +92,11 @@ func ReadConfig() (ServerConfig, error) {
 	}
 
 	makeDirs := func() {
-		if sc.Datastore == STORE_LEVELDB {
+		if sc.Datastore == datastore.STORE_LEVELDB {
 			if sc.LevelPath == "" {
 				var e error
 				if sc.LevelPath, e = ioutil.TempDir("", "tblvl"); e != nil {
-					sc.Datastore = STORE_NONE
+					sc.Datastore = datastore.STORE_NONE
 				} else {
 					sc.TmpDir = append(sc.TmpDir, sc.LevelPath)
 				}
