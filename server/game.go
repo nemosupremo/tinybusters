@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
@@ -21,12 +22,11 @@ const (
 )
 
 type GameServer struct {
-	conf        ServerConfig
-	ServersList []datastore.Server
-	NoUsers     int64
-	sm          *http.ServeMux
-	GameLobby   *Lobby
-	datastore   datastore.DataStore
+	conf      ServerConfig
+	NoUsers   int64
+	sm        *http.ServeMux
+	GameLobby *Lobby
+	datastore datastore.DataStore
 }
 
 func (g *GameServer) serverInfo(w http.ResponseWriter, r *http.Request) {
@@ -35,10 +35,55 @@ func (g *GameServer) serverInfo(w http.ResponseWriter, r *http.Request) {
 		j, _ := json.Marshal(g.getServerInfo())
 		w.Write(j)
 		return
-	} else if r.URL.Path == "/servers" {
-		j, _ := json.Marshal(g.ServersList)
+	} else {
+		j, _ := json.Marshal(map[string]interface{}{"code": 404, "error": "Not found."})
+		w.WriteHeader(404)
 		w.Write(j)
 		return
+	}
+}
+
+func (g *GameServer) serverList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if strings.HasPrefix(r.URL.Path, "/servers") {
+		switch r.Method {
+		case "GET":
+			j, _ := json.Marshal(g.getServers())
+			w.Write(j)
+			return
+		case "POST":
+			decoder := json.NewDecoder(r.Body)
+			si := new(datastore.Server)
+			if err := decoder.Decode(si); err == nil {
+				log.Printf("Received registration from server %s:%d", si.Hostname, si.Port)
+				g.datastore.PutServer(si)
+				j, _ := json.Marshal(g.getServerInfo())
+				w.Write(j)
+			} else {
+				j, _ := json.Marshal(map[string]interface{}{"code": 400, "error": "Invalid json."})
+				w.WriteHeader(400)
+				w.Write(j)
+			}
+			return
+		case "DELETE":
+			decoder := json.NewDecoder(r.Body)
+			si := new(datastore.Server)
+			if err := decoder.Decode(si); err == nil {
+				g.datastore.DeleteServer(si)
+				j, _ := json.Marshal(g.getServerInfo())
+				w.Write(j)
+			} else {
+				j, _ := json.Marshal(map[string]interface{}{"code": 400, "error": "Invalid json."})
+				w.WriteHeader(400)
+				w.Write(j)
+			}
+			return
+		default:
+			j, _ := json.Marshal(map[string]interface{}{"code": 405, "error": "Invalid method."})
+			w.WriteHeader(405)
+			w.Write(j)
+			return
+		}
 	} else {
 		j, _ := json.Marshal(map[string]interface{}{"code": 404, "error": "Not found."})
 		w.WriteHeader(404)
@@ -73,6 +118,35 @@ func (g *GameServer) getServerInfo() datastore.Server {
 		ForceAuth: g.conf.ForceAuth,
 	}
 	return si
+}
+
+func (g *GameServer) getServers() []*datastore.Server {
+	si := new(datastore.Server)
+	*si = g.getServerInfo()
+	out := []*datastore.Server{si}
+	if sv, e := g.datastore.GetServers(); e == nil {
+		out = append(out, sv...)
+	}
+	return out
+}
+
+func (g *GameServer) RegisterWith(otherServer string) error {
+	si := g.getServerInfo()
+	j, _ := json.Marshal(si)
+	resp, err := http.Post(fmt.Sprintf("http://%s/servers", otherServer), "application/json", bytes.NewBuffer(j))
+	if err == nil {
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(resp.Body)
+		si := new(datastore.Server)
+		if err := decoder.Decode(si); err == nil {
+			g.datastore.PutServer(si)
+			return nil
+		} else {
+			return err
+		}
+	} else {
+		return err
+	}
 }
 
 func (g *GameServer) serverLeaders(w http.ResponseWriter, r *http.Request) {
@@ -255,10 +329,9 @@ func (g *GameServer) serverConnect(w http.ResponseWriter, r *http.Request) {
 func NewGameServer(conf ServerConfig) (*GameServer, error) {
 	g := &GameServer{}
 	g.conf = conf
-	g.ServersList = append(make([]datastore.Server, 0, 4), g.getServerInfo())
 	g.sm = http.NewServeMux()
 	g.sm.HandleFunc("/info", g.serverInfo)
-	g.sm.HandleFunc("/servers", g.serverInfo)
+	g.sm.HandleFunc("/servers", g.serverList)
 	g.sm.HandleFunc("/connect", g.serverConnect)
 	g.sm.HandleFunc("/leaderboard", g.serverLeaders)
 
@@ -278,11 +351,60 @@ func NewGameServer(conf ServerConfig) (*GameServer, error) {
 	return g, nil
 }
 
+func (g *GameServer) Cleanup() {
+	log.Println("Cleaning up...")
+	if servers, e := g.datastore.GetServers(); e == nil {
+		for _, server := range servers {
+			j, _ := json.Marshal(g.getServerInfo())
+			req, _ := http.NewRequest("DELETE", fmt.Sprintf("http://%s:%d/servers", server.Hostname, server.Port), bytes.NewBuffer(j))
+			resp, err := http.DefaultClient.Do(req)
+			if err == nil {
+				defer resp.Body.Close()
+			}
+		}
+	}
+	g.datastore.Close()
+}
+
+func (g *GameServer) ServerStatus() {
+	for {
+		if servers, e := g.datastore.GetServers(); e == nil {
+			for _, server := range servers {
+				resp, err := http.Get(fmt.Sprintf("http://%s:%d/info", server.Hostname, server.Port))
+				if err == nil {
+					defer resp.Body.Close()
+					decoder := json.NewDecoder(resp.Body)
+					si := new(datastore.Server)
+					if err := decoder.Decode(si); err == nil {
+						g.datastore.PutServer(si)
+					}
+				} else {
+					g.datastore.DeleteServer(server)
+				}
+			}
+		}
+		time.Sleep(5 * time.Minute)
+	}
+}
+
 func (g *GameServer) Serve() {
 	log.Println("[Server] Starting game server on", fmt.Sprintf("%s:%d", g.conf.HostName, g.conf.GamePort))
 
 	g.GameLobby = NewLobby()
 	go g.GameLobby.Listen()
+	go g.ServerStatus()
+	if len(g.conf.RegisterWith) > 0 {
+		go func() {
+			time.Sleep(2 * time.Second)
+			for _, server := range g.conf.RegisterWith {
+				if e := g.RegisterWith(server); e == nil {
+					log.Printf("Registered server with %s", server)
+				} else {
+					log.Printf("Failed to register server with %s", server)
+				}
+			}
+		}()
+	}
 	if e := http.ListenAndServe(fmt.Sprintf("%s:%d", g.conf.ListenAddress, g.conf.GamePort), g.sm); e != nil {
 		log.Println("[Server] Failed to start game server on", fmt.Sprintf("%s:%d", g.conf.HostName, g.conf.GamePort), e)
 	}

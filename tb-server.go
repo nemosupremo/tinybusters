@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/nemothekid/tinybusters/server"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 )
 
 func main() {
+	flag.Parse()
 	log.Println("[Init] Starting Server...")
 	exitChannel := make(chan bool)
 	exitFunc := func() {
@@ -40,6 +42,7 @@ func main() {
 			go func() {
 				gs.Serve()
 			}()
+			defer gs.Cleanup()
 		} else {
 			panic("Failed to start game server. (" + err.Error() + ")")
 		}

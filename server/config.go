@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"log"
+	"strings"
 )
 
 const (
@@ -41,6 +42,8 @@ type ServerConfig struct {
 	Datastore string `yaml:"datastore"`
 	LevelPath string `yaml:"level_path"`
 
+	RegisterWith []string `yaml:"register_with"`
+
 	TmpDir []string `yaml:"-"`
 
 	Quit func() `yaml:"-"`
@@ -70,6 +73,8 @@ func ReadConfig() (ServerConfig, error) {
 
 		Slots: DEF_SLOTS,
 
+		RegisterWith: []string{},
+
 		TmpDir: make([]string, 0, 2),
 	}
 
@@ -88,6 +93,10 @@ func ReadConfig() (ServerConfig, error) {
 		}
 		if Flags.ClientPort != CLIENT_PORT {
 			sc.ClientPort = Flags.ClientPort
+		}
+
+		if Flags.Register != "" {
+			sc.RegisterWith = strings.Split(Flags.Register, ",")
 		}
 	}
 

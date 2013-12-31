@@ -33,8 +33,8 @@ func NewLevelDataStore(path string) (DataStore, error) {
 	}
 }
 
-func ServerKey(s Server) []byte {
-	return []byte(fmt.Sprintf("%s:%d", s.Hostname, s.Port))
+func serverKey(s Server) []byte {
+	return []byte(fmt.Sprintf("%s%s:%d", prefixServers, s.Hostname, s.Port))
 }
 
 func (u *User) secondaryKey(x int64) []byte {
@@ -257,16 +257,19 @@ func (lds *LevelDataStore) GetServer(serverKey []byte) (*Server, error) {
 }
 func (lds *LevelDataStore) PutServer(s *Server) error {
 	if v, e := msgpack.Marshal(s); e == nil {
-		lds.db.Put(ServerKey(*s), v, nil)
-		return nil
+		return lds.db.Put(serverKey(*s), v, nil)
 	} else {
 		return e
 	}
 }
 func (lds *LevelDataStore) DeleteServer(s *Server) error {
-	return lds.db.Delete(ServerKey(*s), nil)
+	return lds.db.Delete(serverKey(*s), nil)
 }
 
 func (lds *LevelDataStore) NumServers() (int, error) {
 	return 0, nil
+}
+
+func (lds *LevelDataStore) Close() {
+	lds.db.Close()
 }

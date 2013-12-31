@@ -46,3 +46,6 @@ func (n *NoneDataStore) DeleteServer(*Server) error {
 func (n *NoneDataStore) NumServers() (int, error) {
 	return 0, nil
 }
+
+func (n *NoneDataStore) Close() {
+}

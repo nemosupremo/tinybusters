@@ -39,6 +39,8 @@ type DataStore interface {
 	PutServer(*Server) error
 	DeleteServer(*Server) error
 	NumServers() (int, error)
+
+	Close()
 }
 
 type User struct {
@@ -67,7 +69,7 @@ type Server struct {
 	Name      string    `json:"name" msgpack:"n"`
 	Mode      string    `json:"mode" msgpack:"m"`
 	ForceAuth bool      `json:"force_auth" msgpack:"fa"`
-	Updated   time.Time `json:"updated" msgpack:"u"`
+	Updated   time.Time `json:"updated" msgpack:"up"`
 }
 
 func NewUser(username, password string) *User {
