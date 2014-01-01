@@ -5,6 +5,10 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
+const (
+	LOCATION_LOBBY = "lobby"
+)
+
 type Lobby struct {
 	*Room
 }

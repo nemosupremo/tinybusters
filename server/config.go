@@ -39,8 +39,8 @@ type ServerConfig struct {
 
 	Origin []string `yaml:"origin"`
 
-	Datastore string `yaml:"datastore"`
-	LevelPath string `yaml:"level_path"`
+	Datastore     string            `yaml:"datastore"`
+	DatastoreConf map[string]string `yaml:"datastore_conf"`
 
 	RegisterWith []string `yaml:"register_with"`
 
@@ -68,8 +68,8 @@ func ReadConfig() (ServerConfig, error) {
 		LessPath:   "/usr/local/bin/lessc",
 		UglifyPath: "/usr/local/bin/uglifyjs",
 
-		Datastore: datastore.STORE_LEVELDB,
-		LevelPath: "",
+		Datastore:     datastore.STORE_LEVELDB,
+		DatastoreConf: map[string]string{"level_dbpath": ""},
 
 		Slots: DEF_SLOTS,
 
@@ -101,16 +101,6 @@ func ReadConfig() (ServerConfig, error) {
 	}
 
 	makeDirs := func() {
-		if sc.Datastore == datastore.STORE_LEVELDB {
-			if sc.LevelPath == "" {
-				var e error
-				if sc.LevelPath, e = ioutil.TempDir("", "tblvl"); e != nil {
-					sc.Datastore = datastore.STORE_NONE
-				} else {
-					sc.TmpDir = append(sc.TmpDir, sc.LevelPath)
-				}
-			}
-		}
 
 		if sc.CompiledAssetPath == "" {
 			var e error

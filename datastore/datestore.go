@@ -9,9 +9,6 @@ import (
 )
 
 const (
-	STORE_NONE    = "none"
-	STORE_LEVELDB = "leveldb"
-
 	SORT_NONE   = "none"
 	SORT_KILLS  = "kills"
 	SORT_DEATHS = "deaths"
@@ -22,9 +19,6 @@ const (
 
 	idLength = 64
 )
-
-var ErrUserNotFound = fmt.Errorf("User not found.")
-var ErrServerNotFound = fmt.Errorf("Server not found.")
 
 type DataStore interface {
 	GetUsers(string, int, int) ([]*User, error)
@@ -43,12 +37,23 @@ type DataStore interface {
 	Close()
 }
 
+type DataStoreInit func(map[string]string) (DataStore, error)
+
+var datastores map[string]DataStoreInit = make(map[string]DataStoreInit)
+var ErrUserNotFound = fmt.Errorf("User not found.")
+var ErrServerNotFound = fmt.Errorf("Server not found.")
+
+type UserStatus struct {
+	Server   string `msgpack:"s" json:"server"`
+	Location string `msgpack:"l" json:"location"`
+}
+
 type User struct {
 	Id       []byte `msgpack:"id" json:"-"`
 	Name     string `msgpack:"n" json:"name"`
 	Password []byte `msgpack:"p" json:"-"`
 
-	Online bool `msgpack:"o" json:"online"`
+	Status *UserStatus `msgpack:"us" json:"status"`
 
 	Kills  int64 `msgpack:"k" json:"kills"`
 	Deaths int64 `msgpack:"d" json:"deaths"`
@@ -72,6 +77,18 @@ type Server struct {
 	Updated   time.Time `json:"updated" msgpack:"up"`
 }
 
+func RegisterStore(name string, initializer DataStoreInit) {
+	datastores[name] = initializer
+}
+
+func GetStore(name string) (DataStoreInit, error) {
+	if r, ok := datastores[name]; ok {
+		return r, nil
+	} else {
+		return nil, fmt.Errorf("DataStore %s not found.", name)
+	}
+}
+
 func NewUser(username, password string) *User {
 	user := &User{
 		Kills:  0,
@@ -81,7 +98,7 @@ func NewUser(username, password string) *User {
 		Losses: 0,
 		Plays:  0,
 
-		Online:    false,
+		Status:    nil,
 		Temporary: false,
 	}
 	user.Id = make([]byte, idLength)
@@ -102,4 +119,8 @@ func (u *User) CheckPassword(password string) bool {
 		return bcrypt.CompareHashAndPassword(u.Password, bytes.Join([][]byte{u.Id, []byte(password)}, []byte("."))) == nil
 	}
 	return true
+}
+
+func (s Server) Address() string {
+	return fmt.Sprintf("%s:%d", s.Hostname, s.Port)
 }

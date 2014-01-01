@@ -315,7 +315,10 @@ func (g *GameServer) serverConnect(w http.ResponseWriter, r *http.Request) {
 
 		player := NewPlayer(ws, user)
 		g.GameLobby.Register(player)
-		user.Online = true
+		user.Status = &datastore.UserStatus{
+			Server:   g.getServerInfo().Address(),
+			Location: LOCATION_LOBBY,
+		}
 		g.datastore.PutUser(user)
 		if user.Temporary {
 			defer g.datastore.DeleteUser(user)
@@ -335,24 +338,17 @@ func NewGameServer(conf ServerConfig) (*GameServer, error) {
 	g.sm.HandleFunc("/connect", g.serverConnect)
 	g.sm.HandleFunc("/leaderboard", g.serverLeaders)
 
-	var err error
-	switch g.conf.Datastore {
-	case datastore.STORE_LEVELDB:
-		g.datastore, err = datastore.NewLevelDataStore(g.conf.LevelPath)
-		if err != nil {
+	if f, err := datastore.GetStore(g.conf.Datastore); err == nil {
+		if g.datastore, err = f(g.conf.DatastoreConf); err != nil {
 			return nil, err
 		}
-	default:
-		g.datastore, err = datastore.NewNoneDataStore()
-		if err != nil {
-			return nil, err
-		}
+	} else {
+		return nil, err
 	}
 	return g, nil
 }
 
 func (g *GameServer) Cleanup() {
-	log.Println("Cleaning up...")
 	if servers, e := g.datastore.GetServers(); e == nil {
 		for _, server := range servers {
 			j, _ := json.Marshal(g.getServerInfo())

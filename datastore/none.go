@@ -1,8 +1,16 @@
 package datastore
 
+const (
+	STORE_NONE = "none"
+)
+
+func init() {
+	RegisterStore(STORE_NONE, NewLevelDataStore)
+}
+
 type NoneDataStore struct{}
 
-func NewNoneDataStore() (DataStore, error) {
+func NewNoneDataStore(conf map[string]string) (DataStore, error) {
 	return new(NoneDataStore), nil
 }
 

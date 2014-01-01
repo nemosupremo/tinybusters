@@ -6,19 +6,29 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/cache"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/vmihailenco/msgpack"
+	"io/ioutil"
+	"os"
+	"strconv"
 )
 
 const (
+	STORE_LEVELDB = "leveldb"
+
 	prefixUsers   = "users"
 	prefixServers = "servers"
 
-	LEVEL_ENCODER_GOB    = iota
-	LEVEL_ENCODER_MSGPAK = iota
+	LEVEL_ENCODER_GOB    = "gob"
+	LEVEL_ENCODER_MSGPAK = "msgpack"
 )
+
+func init() {
+	RegisterStore(STORE_LEVELDB, NewLevelDataStore)
+}
 
 type marshaller interface {
 	Marshal(v interface{}) ([]byte, error)
@@ -51,22 +61,63 @@ func (g gobEncoder) Unmarshal(data []byte, v interface{}) error {
 
 type LevelDataStore struct {
 	db      *leveldb.DB
+	dbPath  string
 	encoder marshaller
+	isTemp  bool
 }
 
-func NewLevelDataStore(path string) (DataStore, error) {
+func NewLevelDataStore(conf map[string]string) (DataStore, error) {
 	encoder := LEVEL_ENCODER_MSGPAK
+	path := ""
+	writeBuffer := 16777216
+	readCache := 16777216
+	if v, ok := conf["debug_leveldb_encoder"]; ok && v != "" {
+		switch v {
+		case LEVEL_ENCODER_GOB, LEVEL_ENCODER_MSGPAK:
+			encoder = v
+		}
+	}
+	if v, ok := conf["leveldb_path"]; ok && v != "" {
+		path = v
+	}
+	if v, ok := conf["leveldb_cache"]; ok && v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			if n < 8388608 {
+				n = 8388608
+			}
+			readCache = n
+		}
+	}
+	if v, ok := conf["leveldb_writebuffer"]; ok && v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			if n < 4194304 {
+				n = 4194304
+			}
+			writeBuffer = n
+		}
+	}
 	o := &opt.Options{
-		Filter: filter.NewBloomFilter(10),
+		Filter:      filter.NewBloomFilter(10),
+		WriteBuffer: writeBuffer,
+		BlockCache:  cache.NewLRUCache(readCache),
 	}
 	lds := new(LevelDataStore)
+	lds.dbPath = path
+	if lds.dbPath == "" {
+		if p, err := ioutil.TempDir("", "tblvl"); err == nil {
+			lds.dbPath = p
+			lds.isTemp = true
+		} else {
+			return nil, err
+		}
+	}
 	switch encoder {
 	case LEVEL_ENCODER_MSGPAK:
 		lds.encoder = msgpackEncoder{}
 	default:
 		lds.encoder = gobEncoder{}
 	}
-	if db, err := leveldb.OpenFile(path, o); err == nil {
+	if db, err := leveldb.OpenFile(lds.dbPath, o); err == nil {
 		lds.db = db
 		return lds, nil
 	} else {
@@ -313,4 +364,7 @@ func (lds *LevelDataStore) NumServers() (int, error) {
 
 func (lds *LevelDataStore) Close() {
 	lds.db.Close()
+	if lds.isTemp {
+		os.RemoveAll(lds.dbPath)
+	}
 }
