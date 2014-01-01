@@ -3,6 +3,7 @@ package datastore
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/filter"
@@ -14,17 +15,57 @@ import (
 const (
 	prefixUsers   = "users"
 	prefixServers = "servers"
+
+	LEVEL_ENCODER_GOB    = iota
+	LEVEL_ENCODER_MSGPAK = iota
 )
 
+type marshaller interface {
+	Marshal(v interface{}) ([]byte, error)
+	Unmarshal(data []byte, v interface{}) error
+}
+
+type msgpackEncoder struct{}
+type gobEncoder struct{}
+
+func (m msgpackEncoder) Marshal(v interface{}) ([]byte, error) {
+	return msgpack.Marshal(v)
+}
+
+func (m msgpackEncoder) Unmarshal(data []byte, v interface{}) error {
+	return msgpack.Unmarshal(data, v)
+}
+
+func (g gobEncoder) Marshal(v interface{}) ([]byte, error) {
+	m := new(bytes.Buffer)
+	enc := gob.NewEncoder(m)
+	enc.Encode(v)
+	return m.Bytes(), nil
+}
+
+func (g gobEncoder) Unmarshal(data []byte, v interface{}) error {
+	m := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(m)
+	return dec.Decode(v)
+}
+
 type LevelDataStore struct {
-	db *leveldb.DB
+	db      *leveldb.DB
+	encoder marshaller
 }
 
 func NewLevelDataStore(path string) (DataStore, error) {
+	encoder := LEVEL_ENCODER_MSGPAK
 	o := &opt.Options{
 		Filter: filter.NewBloomFilter(10),
 	}
 	lds := new(LevelDataStore)
+	switch encoder {
+	case LEVEL_ENCODER_MSGPAK:
+		lds.encoder = msgpackEncoder{}
+	default:
+		lds.encoder = gobEncoder{}
+	}
 	if db, err := leveldb.OpenFile(path, o); err == nil {
 		lds.db = db
 		return lds, nil
@@ -81,7 +122,7 @@ func (lds *LevelDataStore) GetUsers(sort string, limit int, skip int) ([]*User, 
 			continue
 		}
 		u := new(User)
-		msgpack.Unmarshal(iter.Value(), u)
+		lds.encoder.Unmarshal(iter.Value(), u)
 		users = append(users, u)
 	}
 	return users, nil
@@ -127,7 +168,7 @@ func (lds *LevelDataStore) GetUsersAdjacent(user *User, sort string, spread int)
 	iter.Seek(prefix)
 	for i, hasPrev := 0, iter.Prev(); hasPrev && bytes.HasPrefix(iter.Key(), hPrefix) && (spread == -1 || i < spread); i, hasPrev = i+1, iter.Prev() {
 		u := new(User)
-		msgpack.Unmarshal(iter.Value(), u)
+		lds.encoder.Unmarshal(iter.Value(), u)
 		users = append(users, u)
 	}
 	uq := make([]*User, len(users), cap(users))
@@ -138,7 +179,7 @@ func (lds *LevelDataStore) GetUsersAdjacent(user *User, sort string, spread int)
 
 	for i, hasNext := 0, iter.Seek(prefix); hasNext && bytes.HasPrefix(iter.Key(), hPrefix) && (spread == -1 || i <= spread); i, hasNext = i+1, iter.Next() {
 		u := new(User)
-		msgpack.Unmarshal(iter.Value(), u)
+		lds.encoder.Unmarshal(iter.Value(), u)
 		users = append(users, u)
 	}
 
@@ -149,7 +190,7 @@ func (lds *LevelDataStore) GetUser(username string) (*User, error) {
 	k := []byte(prefixUsers + ":bu" + username)
 	if value, err := lds.db.Get(k, nil); err == nil {
 		u := new(User)
-		msgpack.Unmarshal(value, u)
+		lds.encoder.Unmarshal(value, u)
 		return u, nil
 	} else if err == util.ErrNotFound {
 		return nil, ErrUserNotFound
@@ -159,7 +200,7 @@ func (lds *LevelDataStore) GetUser(username string) (*User, error) {
 }
 
 func (lds *LevelDataStore) PutUser(u *User) error {
-	if v, e := msgpack.Marshal(u); e == nil {
+	if v, e := lds.encoder.Marshal(u); e == nil {
 		if e := lds.updateUser(u); e == nil {
 			batch := new(leveldb.Batch)
 
@@ -239,7 +280,7 @@ func (lds *LevelDataStore) GetServers() ([]*Server, error) {
 	defer iter.Release()
 	for hasNext := iter.Seek(prefix); hasNext && bytes.HasPrefix(iter.Key(), prefix); hasNext = iter.Next() {
 		s := new(Server)
-		msgpack.Unmarshal(iter.Value(), s)
+		lds.encoder.Unmarshal(iter.Value(), s)
 		servers = append(servers, s)
 	}
 	return servers, nil
@@ -247,7 +288,7 @@ func (lds *LevelDataStore) GetServers() ([]*Server, error) {
 func (lds *LevelDataStore) GetServer(serverKey []byte) (*Server, error) {
 	if value, err := lds.db.Get(serverKey, nil); err == nil {
 		s := new(Server)
-		msgpack.Unmarshal(value, s)
+		lds.encoder.Unmarshal(value, s)
 		return s, nil
 	} else if err == util.ErrNotFound {
 		return nil, ErrServerNotFound
@@ -256,7 +297,7 @@ func (lds *LevelDataStore) GetServer(serverKey []byte) (*Server, error) {
 	}
 }
 func (lds *LevelDataStore) PutServer(s *Server) error {
-	if v, e := msgpack.Marshal(s); e == nil {
+	if v, e := lds.encoder.Marshal(s); e == nil {
 		return lds.db.Put(serverKey(*s), v, nil)
 	} else {
 		return e
