@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"log"
+	"net"
+	"os"
 	"strings"
 )
 
@@ -42,6 +44,7 @@ type ServerConfig struct {
 	Datastore     string            `yaml:"datastore"`
 	DatastoreConf map[string]string `yaml:"datastore_conf"`
 
+	SeedServers  []string `yaml:"seed_servers"`
 	RegisterWith []string `yaml:"register_with"`
 
 	TmpDir []string `yaml:"-"`
@@ -73,6 +76,7 @@ func ReadConfig() (ServerConfig, error) {
 
 		Slots: DEF_SLOTS,
 
+		SeedServers:  []string{},
 		RegisterWith: []string{},
 
 		TmpDir: make([]string, 0, 2),
@@ -128,4 +132,21 @@ func ReadConfig() (ServerConfig, error) {
 	readFlags()
 	makeDirs()
 	return sc, nil
+}
+
+func (sc ServerConfig) GetHostname() string {
+	hs := sc.HostName
+	if hs == "" {
+		hs = sc.ListenAddress
+		if hs == "" || hs == net.IPv4zero.String() || hs == "["+net.IPv6zero.String()+"]" || hs == "[::]" {
+			hs, _ = os.Hostname()
+		}
+	}
+	if hs == "{hostname}" {
+		hs, _ = os.Hostname()
+	}
+	if hs == "" {
+		hs = "localhost"
+	}
+	return hs
 }

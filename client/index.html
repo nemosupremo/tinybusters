@@ -44,7 +44,7 @@
 			<h1>{{server}}</h1>
 			<h2>{{location}}</h2>
 			<ul class="chatlist">
-				<li ng-repeat="message in chat" ng-class="{server: message.type=='server'}">
+				<li ng-repeat="message in chat" ng-class="{server: message.type=='server', error: message.error}">
 					<span class="name" ng-if="message.type=='user'">{{message.name}}</span>
 					{{message.message}}
 				</li>
@@ -72,6 +72,7 @@
 	<script src="/scripts/msgpack.js"></script>
 	<script src="/scripts/tinybusters.js"></script>
 	<script src="/scripts/network/tinysocket.js"></script>
+	<script src="/scripts/network/tinychat.js"></script>
 
 	<script src="/scripts/app.js"></script>
   </body>

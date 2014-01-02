@@ -8,7 +8,6 @@ import (
 	"github.com/nemothekid/tinybusters/datastore"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -42,6 +41,37 @@ func (g *GameServer) serverInfo(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		w.Write(j)
 		return
+	}
+}
+
+func (g *GameServer) allowOrigin(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		custHead := r.Header.Get("Access-Control-Request-Headers")
+		if r.Method != "OPTIONS" && origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,PATCH")
+			if custHead != "" {
+				w.Header().Set("Access-Control-Allow-Headers", custHead)
+			} else {
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			}
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else if r.Method == "OPTIONS" {
+			origin := r.Header.Get("origin")
+			custHead := r.Header.Get("Access-Control-Request-Headers")
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,PATCH")
+			if custHead != "" {
+				w.Header().Set("Access-Control-Allow-Headers", custHead)
+			} else {
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			}
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.WriteHeader(204)
+			return
+		}
+		handler(w, r)
 	}
 }
 
@@ -95,16 +125,7 @@ func (g *GameServer) serverList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *GameServer) getServerInfo() datastore.Server {
-	hs := g.conf.HostName
-	if hs == "" {
-		hs = g.conf.ListenAddress
-		if hs == "" || hs == "0.0.0.0" || hs == "0:0:0:0:0:0:0:0" || hs == "::" {
-			hs, _ = os.Hostname()
-		}
-	}
-	if hs == "{hostname}" {
-		hs, _ = os.Hostname()
-	}
+	hs := g.conf.GetHostname()
 	sn := g.conf.ServerName
 	if g.conf.ServerName == "" {
 		sn = hs
@@ -365,10 +386,11 @@ func NewGameServer(conf ServerConfig) (*GameServer, error) {
 	g.protocols = []string{"tinybusters-v1"}
 	g.conf = conf
 	g.sm = http.NewServeMux()
-	g.sm.HandleFunc("/info", g.serverInfo)
-	g.sm.HandleFunc("/servers", g.serverList)
-	g.sm.HandleFunc("/connect", g.serverConnect)
-	g.sm.HandleFunc("/leaderboard", g.serverLeaders)
+
+	g.sm.HandleFunc("/info", g.allowOrigin(g.serverInfo))
+	g.sm.HandleFunc("/servers", g.allowOrigin(g.serverList))
+	g.sm.HandleFunc("/connect", g.allowOrigin(g.serverConnect))
+	g.sm.HandleFunc("/leaderboard", g.allowOrigin(g.serverLeaders))
 
 	if f, err := datastore.GetStore(g.conf.Datastore); err == nil {
 		if g.datastore, err = f(g.conf.DatastoreConf); err != nil {
@@ -415,7 +437,7 @@ func (g *GameServer) ServerStatus() {
 	}
 }
 
-func (g *GameServer) Serve() {
+func (g *GameServer) Serve() error {
 	log.Println("[Server] Starting game server on", fmt.Sprintf("%s:%d", g.conf.HostName, g.conf.GamePort))
 
 	g.GameLobby = NewLobby()
@@ -435,5 +457,7 @@ func (g *GameServer) Serve() {
 	}
 	if e := http.ListenAndServe(fmt.Sprintf("%s:%d", g.conf.ListenAddress, g.conf.GamePort), g.sm); e != nil {
 		log.Println("[Server] Failed to start game server on", fmt.Sprintf("%s:%d", g.conf.HostName, g.conf.GamePort), e)
+		return e
 	}
+	return nil
 }

@@ -23,6 +23,7 @@ type ChatMsg struct {
 	Name        string `msgpack:"n"`
 	Message     string `msgpack:"m"`
 	Server      bool   `msgpack:"s"`
+	Error       bool   `msgpack:"e"`
 }
 
 func ChatMessage(from *Player, message string) []byte {

@@ -12,9 +12,52 @@ window.tiny = {
 }
 
 class tiny.busters
-  @$inject: ['tinysocket']
+  @$inject: ['$http', 'tinysocket', 'tinychat']
 
-  constructor: (@tinysocket) ->
+  constructor: (@http, @tinysocket, @tinychat) ->
+    @serverInfo = @getServerInfo()
+
+  postError: (err) =>
+    @tinychat.postMessage(
+      type:"server",
+      error:true,
+      message:err
+    )
+
+  getServerInfo: (serverList) ->
+    dfd = new jQuery.Deferred();
+    $http = @http
+    findServer = (servers) ->
+      loadInfo = (server) ->
+        $http({method: 'GET', url: "http://#{server.hostname}:#{server.port}/info"})
+      success = (data) ->
+        dfd.resolve(data)
+      error = () ->
+        if servers.length > 0
+          servers.shift()
+          findServer(servers)
+        else
+          @postError("Failed to find any valid seed servers.")
+          dfd.reject()
+      if servers.length > 0
+        loadInfo(servers[0]).success(success).error(error)
+      else
+        @postError("Failed to find any valid seed servers.")
+        dfd.reject()
+    @http({method: 'GET', url: '/server.json'})
+    .success((data) =>
+      if data.length > 0
+        findServer(data)
+      else
+        @postError("Failed to find seed server list.")
+        dfd.reject()
+    ).error((data) ->
+      @postError("Failed to get seed server list.")
+      dfd.reject()
+    )
+
+    return dfd.promise();
+
 
   attach: (@canvas) ->
     createjs.Ticker.setFPS(60);
@@ -30,6 +73,12 @@ class tiny.busters
 
     @stage.addChild(@fps)
     createjs.Ticker.addEventListener("tick", @updateFPS);
+
+    $.when( @serverInfo ).done((server) =>
+      @tinysocket.connect("#{server.hostname}:#{server.port}")
+    )
+
+
     #@stage.addChild(@scene.container)
     #@stage.update();
 

@@ -43,12 +43,10 @@ class tiny.ng.ctrl.nav
       else if element.msRequestFullscreen
         element.msRequestFullscreen
 
-
-
 class tiny.ng.ctrl.game
-  @$inject: ['$scope', 'tinysocket', 'tinycore', '$element']
+  @$inject: ['$scope', 'tinysocket', 'tinycore', 'tinychat', '$element']
 
-  constructor: (@scope, @tinysocket, @tinycore, @element) ->
+  constructor: (@scope, @tinysocket, @tinycore, @tinychat, @element) ->
     @scope.chat = []
     @scope.server = "TINYBUSTERS"
     @scope.location = "TITLE SCREEN"
@@ -63,18 +61,16 @@ class tiny.ng.ctrl.game
       );
 
     @tinycore.attach($(@element).find("#gameport")[0])
-    @tinysocket.on("data:#{tiny.msg.CHAT}", @inScope(@onChat))
+    @tinychat.on("message", @onChat)
     @tinysocket.on("open", @inScope(() => @scope.connected = true))
     @tinysocket.on("close", @inScope(() =>
       if @scope.connected
-        @scope.chat.push(
+        @tinychat.postMessage(
           type:"server",
+          error:true,
           message:"Disconnected from server."
         )
       @scope.connected = false))
-
-    #shouldn't auto connect here
-    @tinysocket.connect()
 
   inScope: (f) =>
     return () =>
@@ -88,19 +84,20 @@ class tiny.ng.ctrl.game
       @scope.chat.push(
         type: "server",
         message: data.m
+        error: !!data.e
       )
     else
       @scope.chat.push(
         type: "user",
         name: data.n
         message: data.m
+        error: !!data.e
       )
 
+    $(@element).find(".chatlist").scrollTop($(@element).find(".chatlist").height());
+
   sendMessage: () =>
-    @tinysocket.sendData(
-      _t: tiny.msg.CHAT,
-      m: @scope.chattxt
-    )
+    @tinychat.sendMessage(@scope.chattxt)
     @scope.chattxt = ""
 
   resizeView: =>
@@ -138,6 +135,7 @@ tiny.ng.app.controller("tiny.busterctrl", construct(tiny.ng.ctrl.game))
 tiny.ng.app.controller("tiny.busternav", construct(tiny.ng.ctrl.nav))
 
 tiny.ng.app.service('tinysocket', construct(tiny.ng.service.tinysocket))
+tiny.ng.app.service('tinychat', construct(tiny.ng.service.tinychat))
 tiny.ng.app.service('tinycore', construct(tiny.busters))
 
 tiny.ng.app.directive "ngEnter", ->

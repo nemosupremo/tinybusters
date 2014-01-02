@@ -2,15 +2,18 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/codegangsta/martini"
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,6 +29,11 @@ type ClientServer struct {
 	conf  ServerConfig
 	m     *martini.ClassicMartini
 	start time.Time
+}
+
+type SeedServer struct {
+	Hostname string `json:"hostname"`
+	Port     int    `json:"port"`
 }
 
 func NewClientServer(conf ServerConfig) *ClientServer {
@@ -47,6 +55,28 @@ func (c *ClientServer) Serve() {
 
 func (c *ClientServer) routes() {
 	c.m.Use(c.clientAssets(c.conf.ClientAssets))
+	c.m.Get("/server", c.seedServers)
+	c.m.Get("/server.json", c.seedServers)
+}
+
+func (c *ClientServer) seedServers(res http.ResponseWriter, req *http.Request) (int, []byte) {
+	servers := make([]SeedServer, 0, 4)
+	if c.conf.GamePort != 0 {
+		servers = append(servers, SeedServer{c.conf.GetHostname(), c.conf.GamePort})
+	}
+	for _, server := range c.conf.SeedServers {
+		if h, p, err := net.SplitHostPort(server); err == nil {
+			if port, err := strconv.Atoi(p); err == nil {
+				servers = append(servers, SeedServer{h, port})
+			}
+		}
+	}
+	res.Header().Set("Content-Type", "application/json")
+	if data, err := json.Marshal(servers); err == nil {
+		return 200, data
+	} else {
+		return 500, []byte(`{"error":500}`)
+	}
 }
 
 func (c *ClientServer) preprocessFile(cmd *exec.Cmd, f io.Reader) ([]byte, error) {

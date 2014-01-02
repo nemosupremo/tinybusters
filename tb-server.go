@@ -40,7 +40,9 @@ func main() {
 		log.Println("[Init] Starting GameServer...")
 		if gs, err := server.NewGameServer(config); err == nil {
 			go func() {
-				gs.Serve()
+				if e := gs.Serve(); e != nil {
+					panic("Failed to start game server. (" + e.Error() + ")")
+				}
 			}()
 			defer gs.Cleanup()
 		} else {
