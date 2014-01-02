@@ -6,6 +6,45 @@ class tiny.ng.tinyApp
     @httpProvider.defaults.withCredentials = true;
     delete @httpProvider.defaults.headers.common['X-Requested-With'];
 
+class tiny.ng.ctrl.nav
+  @$inject: ['$scope']
+
+  constructor: (@scope) ->
+    @isFullscreen = false
+    setFs = () =>
+      @scope.$apply( () =>
+        @isFullscreen = document.fullScreen || document.mozFullScreen || document.webkitIsFullScreen || document.msFullscreenEnabled;;
+      )
+    $("body")[0].addEventListener('fullscreeneventchange', setFs, true);
+    document.addEventListener('mozfullscreenchange', setFs, true);
+    document.addEventListener('MSFullscreenChange', setFs, true);
+    document.addEventListener('webkitfullscreenchange', setFs, true);
+
+  fullscreen: () ->
+    fullscreenEnabled = document.fullScreen || document.mozFullScreen || document.webkitIsFullScreen || document.msFullscreenEnabled;;
+
+    if fullscreenEnabled
+      if document.exitFullscreen
+        document.exitFullscreen()
+      else if document.mozExitFullScreen
+        document.mozExitFullScreen()
+      else if document.webkitExitFullscreen()
+        document.webkitExitFullscreen
+      else if document.msExitFullscreen
+        document.msExitFullscreen
+    else
+      element = $("body")[0]
+      if element.requestFullscreen
+        element.requestFullscreen()
+      else if element.mozRequestFullScreen
+        element.mozRequestFullScreen()
+      else if element.webkitRequestFullscreen
+        element.webkitRequestFullscreen()
+      else if element.msRequestFullscreen
+        element.msRequestFullscreen
+
+
+
 class tiny.ng.ctrl.game
   @$inject: ['$scope', 'tinysocket', 'tinycore', '$element']
 
@@ -94,7 +133,8 @@ construct = (constructor) ->
   return g
 
 tiny.ng.app = angular.module('tinybusters', []);
-tiny.ng.app.controller("tiny.tinyctrl", construct(tiny.ng.ctrl.game))
+tiny.ng.app.controller("tiny.busterctrl", construct(tiny.ng.ctrl.game))
+tiny.ng.app.controller("tiny.busternav", construct(tiny.ng.ctrl.nav))
 
 tiny.ng.app.service('tinysocket', construct(tiny.ng.service.tinysocket))
 tiny.ng.app.service('tinycore', construct(tiny.busters))

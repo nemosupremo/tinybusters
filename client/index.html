@@ -9,10 +9,12 @@
 
 	<link href="http://fonts.googleapis.com/css?family=Raleway:400,700,100" rel="stylesheet" type="text/css">
 	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
+	<link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.0.3/css/font-awesome.min.css" rel="stylesheet">
+
 	<link href="/stylesheets/main.css" rel="stylesheet">
   </head>
   <body>
-	<div class="topnav">
+	<div class="topnav" ng-controller="tiny.busternav as nav">
 		<div class="header">
 			<div class="row">
 				<div class="col-md-3">
@@ -21,20 +23,20 @@
 				<div class="col-md-9">
 					<ul class="pull-right nav navbar-nav nav-links">
 						<li>
-							<a href="https://github.com/nemothekid/tinybusters" target="_blank">Help</a>
+							<a href="/help" target="_blank">Help</a>
 						</li>
 						<li>
 							<a href="https://github.com/nemothekid/tinybusters" target="_blank">GitHub</a>
 						</li>
-						<li>
-							<a href="https://github.com/nemothekid/tinybusters" target="_blank">Fullscreen</a>
+						<li ng-cloak>
+							<a ng-click="nav.fullscreen()" href=""><i class="fa" ng-class="{'fa-expand': !nav.isFullscreen, 'fa-compress': nav.isFullscreen}"></i> <span ng-if="nav.isFullscreen">Leave </span>Fullscreen</a>
 						</li>
 					</ul>
 				</div>
 			</div>
 		</div>
 	</div>
-	<div class="row row-m" ng-controller="tiny.tinyctrl">
+	<div class="row row-m" ng-controller="tiny.busterctrl" ng-cloak>
 		<div class="col-md-10 main">
 		  <canvas id="gameport" width="200" height="150">Canvas Not Supported</canvas>
 		</div>
