@@ -25,7 +25,13 @@ class tiny.ng.ctrl.game
     @tinycore.attach($(@element).find("#gameport")[0])
     @tinysocket.on("data:#{tiny.msg.CHAT}", @inScope(@onChat))
     @tinysocket.on("open", @inScope(() => @scope.connected = true))
-    @tinysocket.on("close", @inScope(() => @scope.connected = false))
+    @tinysocket.on("close", @inScope(() =>
+      if @scope.connected
+        @scope.chat.push(
+          type:"server",
+          message:"Disconnected from server."
+        )
+      @scope.connected = false))
 
     #shouldn't auto connect here
     @tinysocket.connect()
