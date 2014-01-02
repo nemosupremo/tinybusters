@@ -41,7 +41,7 @@ func (n *NoneDataStore) NumUsers() (int, error) {
 func (n *NoneDataStore) GetServers() ([]*Server, error) {
 	return []*Server{}, nil
 }
-func (n *NoneDataStore) GetServer([]byte) (*Server, error) {
+func (n *NoneDataStore) GetServer(string) (*Server, error) {
 	return nil, ErrServerNotFound
 }
 func (n *NoneDataStore) PutServer(*Server) error {
@@ -53,6 +53,18 @@ func (n *NoneDataStore) DeleteServer(*Server) error {
 
 func (n *NoneDataStore) NumServers() (int, error) {
 	return 0, nil
+}
+
+func (n *NoneDataStore) GetFriends(*User) ([]*User, error) {
+	return []*User{}, nil
+}
+
+func (n *NoneDataStore) AddFriend(*User, *User) error {
+	return nil
+}
+
+func (n *NoneDataStore) RemoveFriend(*User, *User) error {
+	return nil
 }
 
 func (n *NoneDataStore) Close() {

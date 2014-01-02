@@ -29,10 +29,14 @@ type DataStore interface {
 	NumUsers() (int, error)
 
 	GetServers() ([]*Server, error)
-	GetServer([]byte) (*Server, error)
+	GetServer(string) (*Server, error)
 	PutServer(*Server) error
 	DeleteServer(*Server) error
 	NumServers() (int, error)
+
+	GetFriends(*User) ([]*User, error)
+	AddFriend(*User, *User) error
+	RemoveFriend(*User, *User) error
 
 	Close()
 }

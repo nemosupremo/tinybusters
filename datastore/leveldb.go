@@ -13,14 +13,17 @@ import (
 	"github.com/vmihailenco/msgpack"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strconv"
 )
 
 const (
-	STORE_LEVELDB = "leveldb"
+	STORE_LEVELDB   = "leveldb"
+	LEVELDB_VERSION = 1
 
 	prefixUsers   = "users"
 	prefixServers = "servers"
+	prefixFriends = "friends"
 
 	LEVEL_ENCODER_GOB    = "gob"
 	LEVEL_ENCODER_MSGPAK = "msgpack"
@@ -115,9 +118,28 @@ func NewLevelDataStore(conf map[string]string) (DataStore, error) {
 	case LEVEL_ENCODER_MSGPAK:
 		lds.encoder = msgpackEncoder{}
 	default:
+		encoder = LEVEL_ENCODER_GOB
 		lds.encoder = gobEncoder{}
 	}
 	if db, err := leveldb.OpenFile(lds.dbPath, o); err == nil {
+		if v, e := db.Get([]byte("_VERSION"), nil); e == nil {
+			if v[0] != LEVELDB_VERSION {
+				return nil, fmt.Errorf("Invalid LevelDB Version (%d)", v)
+			}
+		} else if e != util.ErrNotFound {
+			return nil, e
+		}
+
+		if v, e := db.Get([]byte("_ENC"), nil); e == nil {
+			if string(v) != encoder {
+				return nil, fmt.Errorf("Unexpected LevelDB encoding (Expected '%s', Got '%s')", encoder, v)
+			}
+		} else if e != util.ErrNotFound {
+			return nil, e
+		}
+
+		db.Put([]byte("_VERSION"), []byte{LEVELDB_VERSION}, nil)
+		db.Put([]byte("_ENC"), []byte(encoder), nil)
 		lds.db = db
 		return lds, nil
 	} else {
@@ -126,7 +148,21 @@ func NewLevelDataStore(conf map[string]string) (DataStore, error) {
 }
 
 func serverKey(s Server) []byte {
-	return []byte(fmt.Sprintf("%s%s:%d", prefixServers, s.Hostname, s.Port))
+	return levelKey(prefixServers, fmt.Sprintf("%s:%d", s.Hostname, s.Port))
+}
+
+func levelKey(parts ...interface{}) []byte {
+	asbr := make([][]byte, len(parts))
+	for idx, part := range parts {
+		if vb, okb := part.([]byte); okb {
+			asbr[idx] = vb
+		} else if vs, oks := part.(string); oks {
+			asbr[idx] = []byte(vs)
+		} else {
+			panic(fmt.Sprintf("Value %v used as levelKey", part))
+		}
+	}
+	return bytes.Join(asbr, []byte{0})
 }
 
 func (u *User) secondaryKey(x int64) []byte {
@@ -146,24 +182,24 @@ func (lds *LevelDataStore) GetUsers(sort string, limit int, skip int) ([]*User, 
 		capc = 64
 	}
 	users := make([]*User, 0, capc)
-	prefixS := prefixUsers
+	var searchPrefix string
 	switch sort {
 	case SORT_KILLS:
-		prefixS += ":bk"
+		searchPrefix = "bk"
 	case SORT_DEATHS:
-		prefixS += ":bd"
+		searchPrefix = "bd"
 	case SORT_SCORE:
-		prefixS += ":bs"
+		searchPrefix = "bs"
 	case SORT_WINS:
-		prefixS += ":bw"
+		searchPrefix = "bw"
 	case SORT_LOSSES:
-		prefixS += ":bl"
+		searchPrefix = "bl"
 	case SORT_PLAYS:
-		prefixS += ":bp"
+		searchPrefix = "bp"
 	default:
-		prefixS += ":bu"
+		searchPrefix = "bu"
 	}
-	prefix := []byte(prefixS)
+	prefix := levelKey(prefixUsers, searchPrefix, "")
 	iter := lds.db.NewIterator(nil)
 	defer iter.Release()
 	for i, hasNext := 0, iter.Seek(prefix); hasNext && bytes.HasPrefix(iter.Key(), prefix) && (limit == 0 || i < limit); i, hasNext = i+1, iter.Next() {
@@ -185,33 +221,34 @@ func (lds *LevelDataStore) GetUsersAdjacent(user *User, sort string, spread int)
 		capc = 64
 	}
 	users := make([]*User, 0, capc)
-	prefixS := prefixUsers
+
+	var searchPrefix string
 	var value []byte
 	switch sort {
 	case SORT_KILLS:
-		prefixS += ":bk"
+		searchPrefix = "bk"
 		value = user.secondaryKeyReverse(user.Kills)
 	case SORT_DEATHS:
-		prefixS += ":bd"
+		searchPrefix = "bd"
 		value = user.secondaryKeyReverse(user.Deaths)
 	case SORT_SCORE:
-		prefixS += ":bs"
+		searchPrefix = "bs"
 		value = user.secondaryKeyReverse(user.Score)
 	case SORT_WINS:
-		prefixS += ":bw"
+		searchPrefix = "bw"
 		value = user.secondaryKeyReverse(user.Wins)
 	case SORT_LOSSES:
-		prefixS += ":bl"
+		searchPrefix = "bl"
 		value = user.secondaryKeyReverse(user.Losses)
 	case SORT_PLAYS:
-		prefixS += ":bp"
+		searchPrefix = "bp"
 		value = user.secondaryKeyReverse(user.Plays)
 	default:
-		prefixS += ":bu"
+		searchPrefix = "bu"
 		value = []byte(user.Name)
 	}
-	hPrefix := []byte(prefixS)
-	prefix := append(hPrefix[:], value...)
+	hPrefix := levelKey(prefixUsers, searchPrefix, "")
+	prefix := levelKey(levelKey(prefixUsers, searchPrefix), value)
 
 	iter := lds.db.NewIterator(nil)
 	defer iter.Release()
@@ -238,7 +275,7 @@ func (lds *LevelDataStore) GetUsersAdjacent(user *User, sort string, spread int)
 }
 
 func (lds *LevelDataStore) GetUser(username string) (*User, error) {
-	k := []byte(prefixUsers + ":bu" + username)
+	k := levelKey(prefixUsers, "bu", username)
 	if value, err := lds.db.Get(k, nil); err == nil {
 		u := new(User)
 		lds.encoder.Unmarshal(value, u)
@@ -255,13 +292,13 @@ func (lds *LevelDataStore) PutUser(u *User) error {
 		if e := lds.updateUser(u); e == nil {
 			batch := new(leveldb.Batch)
 
-			batch.Put(append([]byte(prefixUsers+":bk"), u.secondaryKeyReverse(u.Kills)...), v)
-			batch.Put(append([]byte(prefixUsers+":bd"), u.secondaryKeyReverse(u.Deaths)...), v)
-			batch.Put(append([]byte(prefixUsers+":bs"), u.secondaryKeyReverse(u.Score)...), v)
-			batch.Put(append([]byte(prefixUsers+":bw"), u.secondaryKeyReverse(u.Wins)...), v)
-			batch.Put(append([]byte(prefixUsers+":bl"), u.secondaryKeyReverse(u.Losses)...), v)
-			batch.Put(append([]byte(prefixUsers+":bp"), u.secondaryKeyReverse(u.Plays)...), v)
-			batch.Put(append([]byte(prefixUsers+":bu"), []byte(u.Name)...), v)
+			batch.Put(levelKey(prefixUsers, "bk", u.secondaryKeyReverse(u.Kills)), v)
+			batch.Put(levelKey(prefixUsers, "bd", u.secondaryKeyReverse(u.Deaths)), v)
+			batch.Put(levelKey(prefixUsers, "bs", u.secondaryKeyReverse(u.Score)), v)
+			batch.Put(levelKey(prefixUsers, "bw", u.secondaryKeyReverse(u.Wins)), v)
+			batch.Put(levelKey(prefixUsers, "bl", u.secondaryKeyReverse(u.Losses)), v)
+			batch.Put(levelKey(prefixUsers, "bp", u.secondaryKeyReverse(u.Plays)), v)
+			batch.Put(levelKey(prefixUsers, "bu", u.Name), v)
 
 			return lds.db.Write(batch, nil)
 		} else {
@@ -277,25 +314,25 @@ func (lds *LevelDataStore) updateUser(newUser *User) error {
 		batch := new(leveldb.Batch)
 
 		if oldUser.Kills != newUser.Kills {
-			batch.Delete(append([]byte(prefixUsers+":bk"), oldUser.secondaryKeyReverse(oldUser.Kills)...))
+			batch.Delete(levelKey(prefixUsers, "bk", oldUser.secondaryKeyReverse(oldUser.Kills)))
 		}
 		if oldUser.Deaths != newUser.Deaths {
-			batch.Delete(append([]byte(prefixUsers+":bd"), oldUser.secondaryKeyReverse(oldUser.Deaths)...))
+			batch.Delete(levelKey(prefixUsers, "bd", oldUser.secondaryKeyReverse(oldUser.Deaths)))
 		}
 		if oldUser.Score != newUser.Score {
-			batch.Delete(append([]byte(prefixUsers+":bs"), oldUser.secondaryKeyReverse(oldUser.Score)...))
+			batch.Delete(levelKey(prefixUsers, "bs", oldUser.secondaryKeyReverse(oldUser.Score)))
 		}
 		if oldUser.Wins != newUser.Wins {
-			batch.Delete(append([]byte(prefixUsers+":bw"), oldUser.secondaryKeyReverse(oldUser.Wins)...))
+			batch.Delete(levelKey(prefixUsers, "bw", oldUser.secondaryKeyReverse(oldUser.Wins)))
 		}
 		if oldUser.Losses != newUser.Losses {
-			batch.Delete(append([]byte(prefixUsers+":bl"), oldUser.secondaryKeyReverse(oldUser.Losses)...))
+			batch.Delete(levelKey(prefixUsers, "bl", oldUser.secondaryKeyReverse(oldUser.Losses)))
 		}
 		if oldUser.Plays != newUser.Plays {
-			batch.Delete(append([]byte(prefixUsers+":bp"), oldUser.secondaryKeyReverse(oldUser.Plays)...))
+			batch.Delete(levelKey(prefixUsers, "bp", oldUser.secondaryKeyReverse(oldUser.Plays)))
 		}
 		if oldUser.Name != newUser.Name {
-			batch.Delete(append([]byte(prefixUsers+":bu"), []byte(oldUser.Name)...))
+			batch.Delete(levelKey(prefixUsers, "bu", oldUser.Name))
 		}
 
 		return lds.db.Write(batch, nil)
@@ -309,13 +346,13 @@ func (lds *LevelDataStore) updateUser(newUser *User) error {
 func (lds *LevelDataStore) DeleteUser(u *User) error {
 	batch := new(leveldb.Batch)
 
-	batch.Delete(append([]byte(prefixUsers+":bk"), u.secondaryKeyReverse(u.Kills)...))
-	batch.Delete(append([]byte(prefixUsers+":bd"), u.secondaryKeyReverse(u.Deaths)...))
-	batch.Delete(append([]byte(prefixUsers+":bs"), u.secondaryKeyReverse(u.Score)...))
-	batch.Delete(append([]byte(prefixUsers+":bw"), u.secondaryKeyReverse(u.Wins)...))
-	batch.Delete(append([]byte(prefixUsers+":bl"), u.secondaryKeyReverse(u.Losses)...))
-	batch.Delete(append([]byte(prefixUsers+":bp"), u.secondaryKeyReverse(u.Plays)...))
-	batch.Delete(append([]byte(prefixUsers+":bu"), []byte(u.Name)...))
+	batch.Delete(levelKey(prefixUsers, "bk", u.secondaryKeyReverse(u.Kills)))
+	batch.Delete(levelKey(prefixUsers, "bd", u.secondaryKeyReverse(u.Deaths)))
+	batch.Delete(levelKey(prefixUsers, "bs", u.secondaryKeyReverse(u.Score)))
+	batch.Delete(levelKey(prefixUsers, "bw", u.secondaryKeyReverse(u.Wins)))
+	batch.Delete(levelKey(prefixUsers, "bl", u.secondaryKeyReverse(u.Losses)))
+	batch.Delete(levelKey(prefixUsers, "bp", u.secondaryKeyReverse(u.Plays)))
+	batch.Delete(levelKey(prefixUsers, "bu", u.Name))
 
 	return lds.db.Write(batch, nil)
 }
@@ -327,7 +364,7 @@ func (lds *LevelDataStore) NumUsers() (int, error) {
 func (lds *LevelDataStore) GetServers() ([]*Server, error) {
 	servers := make([]*Server, 0, 16)
 	iter := lds.db.NewIterator(nil)
-	prefix := []byte(prefixServers)
+	prefix := []byte(prefixServers + "\x00")
 	defer iter.Release()
 	for hasNext := iter.Seek(prefix); hasNext && bytes.HasPrefix(iter.Key(), prefix); hasNext = iter.Next() {
 		s := new(Server)
@@ -336,8 +373,8 @@ func (lds *LevelDataStore) GetServers() ([]*Server, error) {
 	}
 	return servers, nil
 }
-func (lds *LevelDataStore) GetServer(serverKey []byte) (*Server, error) {
-	if value, err := lds.db.Get(serverKey, nil); err == nil {
+func (lds *LevelDataStore) GetServer(serverAddr string) (*Server, error) {
+	if value, err := lds.db.Get([]byte(serverAddr), nil); err == nil {
 		s := new(Server)
 		lds.encoder.Unmarshal(value, s)
 		return s, nil
@@ -360,6 +397,80 @@ func (lds *LevelDataStore) DeleteServer(s *Server) error {
 
 func (lds *LevelDataStore) NumServers() (int, error) {
 	return 0, nil
+}
+
+func (lds *LevelDataStore) getFriends(u *User) ([]string, error) {
+	if value, err := lds.db.Get(levelKey(prefixFriends, u.Name), nil); err == nil {
+		var friends []string
+		if e := lds.encoder.Unmarshal(value, friends); e == nil {
+			return friends, nil
+		} else {
+			return nil, e
+		}
+	} else if err == util.ErrNotFound {
+		return []string{}, nil
+	} else {
+		return nil, err
+	}
+}
+
+func (lds *LevelDataStore) GetFriends(u *User) ([]*User, error) {
+	if friends, err := lds.getFriends(u); err == nil {
+		users := make([]*User, 0, len(friends))
+		iter := lds.db.NewIterator(nil)
+		pu := levelKey(prefixUsers, "")
+		defer iter.Release()
+		for _, friend := range friends {
+			userKey := levelKey(prefixUsers, friend)
+			iter.Seek(userKey)
+			if !bytes.HasPrefix(iter.Key(), pu) {
+				break
+			}
+			if bytes.Equal(iter.Key(), userKey) {
+				u := new(User)
+				if err := lds.encoder.Unmarshal(iter.Value(), u); err == nil {
+					users = append(users, u)
+				}
+			}
+		}
+		return users, nil
+	} else {
+		return nil, err
+	}
+}
+
+func (lds *LevelDataStore) AddFriend(u *User, f *User) error {
+	if currentFriends, err := lds.getFriends(u); err == nil {
+		if n := sort.SearchStrings(currentFriends, f.Name); n < len(currentFriends) && currentFriends[n] != f.Name {
+			currentFriends = append(currentFriends, f.Name)
+			sort.Strings(currentFriends)
+			if v, e := lds.encoder.Marshal(currentFriends); e == nil {
+				return lds.db.Put(levelKey(prefixFriends, f.Name), v, nil)
+			} else {
+				return e
+			}
+		}
+	} else {
+		return err
+	}
+	return nil
+}
+
+func (lds *LevelDataStore) RemoveFriend(u *User, f *User) error {
+	if currentFriends, err := lds.getFriends(u); err == nil {
+		if n := sort.SearchStrings(currentFriends, f.Name); n < len(currentFriends) && currentFriends[n] == f.Name {
+			currentFriends = append(currentFriends[:n], currentFriends[n+1:]...)
+			sort.Strings(currentFriends)
+			if v, e := lds.encoder.Marshal(currentFriends); e == nil {
+				return lds.db.Put(levelKey(prefixFriends, f.Name), v, nil)
+			} else {
+				return e
+			}
+		}
+	} else {
+		return err
+	}
+	return nil
 }
 
 func (lds *LevelDataStore) Close() {
