@@ -31,6 +31,7 @@ func ChatMessage(from *Player, message string) []byte {
 	if from == nil {
 		c.Server = true
 	} else {
+		c.Server = false
 		c.Name = from.User.Name
 	}
 	c.Message = message

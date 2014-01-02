@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	CLOSE_NO_SLOTS     = 4502
-	CLOSE_INVALID_PASS = 4503
-	CLOSE_INVALID_USER = 4504
+	CLOSE_NO_SLOTS      = 4502
+	CLOSE_INVALID_PASS  = 4503
+	CLOSE_INVALID_USER  = 4504
+	CLOSE_INVALID_PROTO = 4505
 )
 
 type GameServer struct {
@@ -27,6 +28,7 @@ type GameServer struct {
 	sm        *http.ServeMux
 	GameLobby *Lobby
 	datastore datastore.DataStore
+	protocols []string
 }
 
 func (g *GameServer) serverInfo(w http.ResponseWriter, r *http.Request) {
@@ -265,7 +267,32 @@ func (g *GameServer) serverConnect(w http.ResponseWriter, r *http.Request) {
 		password := r.FormValue("pass")
 		register := r.FormValue("register")
 
-		ws, err := websocket.Upgrade(w, r, nil, 1024, 1024)
+		protocol := ""
+		validProtocol := false
+		for _, p := range g.protocols {
+			for _, rp := range websocket.Subprotocols(r) {
+				if p == rp {
+					protocol = p
+					validProtocol = true
+					break
+				}
+			}
+			if validProtocol {
+				break
+			}
+		}
+		var headers map[string][]string = nil
+
+		if validProtocol {
+			headers = map[string][]string{
+				"Sec-Websocket-Protocol": []string{protocol},
+			}
+		} else if len(websocket.Subprotocols(r)) != 0 {
+			headers = map[string][]string{
+				"Sec-Websocket-Protocol": []string{websocket.Subprotocols(r)[0]},
+			}
+		}
+		ws, err := websocket.Upgrade(w, r, headers, 1024, 1024)
 		if _, ok := err.(websocket.HandshakeError); ok {
 			doE(405, "Not a websocket handshake.")
 			return
@@ -275,6 +302,10 @@ func (g *GameServer) serverConnect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if !validProtocol {
+			ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(CLOSE_INVALID_PROTO, "Invalid protocol ("+strings.Join(websocket.Subprotocols(r), ",")+")."), time.Now().Add(10*time.Second))
+			return
+		}
 		user, uerr := g.datastore.GetUser(username)
 
 		if uerr == nil {
@@ -331,6 +362,7 @@ func (g *GameServer) serverConnect(w http.ResponseWriter, r *http.Request) {
 
 func NewGameServer(conf ServerConfig) (*GameServer, error) {
 	g := &GameServer{}
+	g.protocols = []string{"tinybusters-v1"}
 	g.conf = conf
 	g.sm = http.NewServeMux()
 	g.sm.HandleFunc("/info", g.serverInfo)

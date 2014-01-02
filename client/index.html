@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<head>
+<html ng-app='tinybusters'>
+	<head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<title>Tiny Busters</title>
@@ -10,7 +11,7 @@
 	<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
 	<link href="/stylesheets/main.css" rel="stylesheet">
   </head>
-  <body style="">
+  <body>
 	<div class="topnav">
 		<div class="header">
 			<div class="row">
@@ -33,64 +34,43 @@
 			</div>
 		</div>
 	</div>
-	  <div class="row row-m">
+	<div class="row row-m" ng-controller="tiny.tinyctrl">
 		<div class="col-md-10 main">
 		  <canvas id="gameport" width="200" height="150">Canvas Not Supported</canvas>
 		</div>
 		<div class="col-md-2 chat">
-			<h1>USEAST-1</h1>
-			<h2>Server</h2>
+			<h1>{{server}}</h1>
+			<h2>{{location}}</h2>
 			<ul class="chatlist">
-				<li>
-					<span class="name">Foo</span>: Hello World!
+				<li ng-repeat="message in chat" ng-class="{server: message.type=='server'}">
+					<span class="name" ng-if="message.type=='user'">{{message.name}}</span>
+					{{message.message}}
 				</li>
-				<li>
-					<span class="name">Foo</span>: Hello World! Hello World! Hello World!
-				</li>
-				<li>
-					<span class="name">Foo</span>: Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World! Hello World!
-				</li>
-				<li>
-					<span class="name">Foo</span>: Hello World!
-				</li>
-				<li>
-					<span class="name">Foo</span>: Hello World!
-				</li>
-				<li class="server">
-					User bar has joined the game.
-
+				<li class="server" ng-if="!connected">
+					Connect to a server to get started.
 				</li>
 			</ul>
 			<div class="input-group">
-		      <input type="text" class="form-control txt-chat">
+		      <input type="text" class="form-control txt-chat" ng-disabled="!connected" ng-model="chattxt" ng-enter="sendMessage()">
 		      <span class="input-group-btn">
-		        <button class="btn btn-inverse btn-chat" type="button">Chat!</button>
+		        <button class="btn btn-inverse btn-chat" type="button" ng-class="{disabled: !connected}" ng-click="sendMessage()">Chat!</button>
 		      </span>
 		    </div>
 		</div>
 	</div>
 
-	<script id="chatTemplate" type="text/x-handlebars-template">
-  		<li>
-  			<span class="name">{{name}}</span>: {{message}}
-  		</li>
-	</script>
-
-	<script id="serverMessageTemplate" type="text/x-handlebars-template">
-  		<li class="server">{{message}}</li>
-	</script>
-
 	<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.0/jquery.min.js"></script>
 	<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
 	<script src="//cdnjs.cloudflare.com/ajax/libs/numeral.js/1.4.5/numeral.min.js"></script>
-	<script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/1.2.1/handlebars.min.js"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.0/backbone-min.js"></script>
+	<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.6/angular.min.js"></script>
 	<script src="//code.createjs.com/easeljs-0.7.0.min.js"></script>
 	<script src="//code.createjs.com/soundjs-0.5.0.min.js"></script>
 	<script src="//code.createjs.com/preloadjs-0.4.0.min.js"></script>
 	<script src="/scripts/msgpack.js"></script>
-	<script src="/scripts/app.js"></script>
 	<script src="/scripts/tinybusters.js"></script>
+	<script src="/scripts/network/tinysocket.js"></script>
+
+	<script src="/scripts/app.js"></script>
   </body>
 </html>
-
-</body></html>

@@ -1,6 +1,22 @@
-class tiny.busters
+window.tiny = {
+  scenes: {}
+  ng:
+    mod: {}
+    service: {}
+    ctrl: {}
+  const:
+    WS_PROTOCOL: ["tinybusters-v1"]
+  msg:
+    INVALID: 0
+    CHAT: 1
+}
 
-  constructor: (@canvas) ->
+class tiny.busters
+  @$inject: ['tinysocket']
+
+  constructor: (@tinysocket) ->
+
+  attach: (@canvas) ->
     createjs.Ticker.setFPS(60);
     createjs.Ticker.timingMode = createjs.Ticker.RAF_SYNCHED
 
