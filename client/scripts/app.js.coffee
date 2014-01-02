@@ -56,10 +56,11 @@ class tiny.ng.ctrl.game
     @scope.chattxt = ""
     @scope.sendMessage = @sendMessage
 
-    @resizeView()
-    $( window ).resize( =>
-      @resizeView();
-    );
+    if $(@element).prop("fillwindow") || $(@element).attr("fillwindow")?
+      @resizeView()
+      $( window ).resize( =>
+        @resizeView();
+      );
 
     @tinycore.attach($(@element).find("#gameport")[0])
     @tinysocket.on("data:#{tiny.msg.CHAT}", @inScope(@onChat))
@@ -104,7 +105,7 @@ class tiny.ng.ctrl.game
 
   resizeView: =>
     find = $(@element).find.bind($(@element))
-    tnH = find(".topnav").height()
+    tnH = $(".topnav").height()
     bodyHeight = window.innerHeight - tnH
     chatWidth = find(".chat").width()
     portWidth = find(".main").width()
