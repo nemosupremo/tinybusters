@@ -23,7 +23,7 @@ class tiny.ng.ctrl.game
     );
 
     @tinycore.attach($(@element).find("#gameport")[0])
-    @tinysocket.on("data", @inScope(@onChat))
+    @tinysocket.on("data:#{tiny.msg.CHAT}", @inScope(@onChat))
     @tinysocket.on("open", @inScope(() => @scope.connected = true))
     @tinysocket.on("close", @inScope(() => @scope.connected = false))
 
