@@ -18,7 +18,7 @@ class tiny.ng.service.tinysocket
       if !server? || server == ""
         server = "localhost:9001"
       if !username? || username == ""
-        username = "buster"+@makeid(8)
+        username = "buster#{@makeid(8)}"
       parts.push("name=#{encodeURIComponent(username)}")
       if password?
         parts.push("pass=#{encodeURIComponent(password)}")
