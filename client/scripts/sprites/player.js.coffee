@@ -58,8 +58,8 @@ class tiny.sprites.player
         @p2Body.force[1] += 40
         @boost -= 5
         @boost = Math.max(0, @boost)
-    else
-      @boost = 100
+    else if @boost <= 100
+      @boost = Math.min(100, @boost+3)
 
   onImpact: (evt) =>
     #console.log evt
