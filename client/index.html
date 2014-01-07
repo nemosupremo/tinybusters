@@ -17,10 +17,7 @@
 	<div class="topnav" ng-controller="tiny.busternav as nav">
 		<div class="header">
 			<div class="row">
-				<div class="col-md-3">
-					<h1>Tiny Busters</h1>
-				</div>
-				<div class="col-md-9">
+				<div class="col-md-12">
 					<ul class="pull-right nav navbar-nav nav-links">
 						<li>
 							<a href="/help" target="_blank">Help</a>
@@ -32,13 +29,14 @@
 							<a ng-click="nav.fullscreen()" href=""><i class="fa" ng-class="{'fa-expand': !nav.isFullscreen, 'fa-compress': nav.isFullscreen}"></i> <span ng-if="nav.isFullscreen">Leave </span>Fullscreen</a>
 						</li>
 					</ul>
+					<h1>Tiny Busters</h1>
 				</div>
 			</div>
 		</div>
 	</div>
 	<div class="row row-m" ng-controller="tiny.busterctrl" fillwindow ng-cloak>
 		<div class="col-md-10 main">
-		  <canvas id="gameport" width="800" height="600">Canvas Not Supported</canvas>
+		  <canvas id="gameport" width="800" height="600" tabindex="1" autofocus>Canvas Not Supported</canvas>
 		</div>
 		<div class="col-md-2 chat">
 			<h1>{{server}}</h1>
@@ -69,10 +67,15 @@
 	<script src="//code.createjs.com/easeljs-0.7.0.min.js"></script>
 	<script src="//code.createjs.com/soundjs-0.5.0.min.js"></script>
 	<script src="//code.createjs.com/preloadjs-0.4.0.min.js"></script>
-	<script src="/scripts/msgpack.js"></script>
+	<script src="/scripts/lib/msgpack.js"></script>
+	<script src="/scripts/lib/p2.js"></script>
 	<script src="/scripts/tinybusters.js"></script>
 	<script src="/scripts/network/tinysocket.js"></script>
 	<script src="/scripts/network/tinychat.js"></script>
+	<script src="/scripts/sprites/player.js"></script>
+	<script src="/scripts/scenes/scene.js"></script>
+	<script src="/scripts/scenes/title.js"></script>
+	<script src="/scripts/scenes/game.js"></script>
 
 	<script src="/scripts/app.js"></script>
   </body>
