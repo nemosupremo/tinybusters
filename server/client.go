@@ -36,6 +36,10 @@ type SeedServer struct {
 	Port     int    `json:"port"`
 }
 
+type ClientConfig struct {
+	SeedServers []SeedServer `json:"seed_servers"`
+}
+
 func NewClientServer(conf ServerConfig) *ClientServer {
 	c := &ClientServer{}
 	c.conf = conf
@@ -55,11 +59,11 @@ func (c *ClientServer) Serve() {
 
 func (c *ClientServer) routes() {
 	c.m.Use(c.clientAssets(c.conf.ClientAssets))
-	c.m.Get("/server", c.seedServers)
-	c.m.Get("/server.json", c.seedServers)
+	c.m.Get("/config", c.clientConfig)
+	c.m.Get("/config.json", c.clientConfig)
 }
 
-func (c *ClientServer) seedServers(res http.ResponseWriter, req *http.Request) (int, []byte) {
+func (c *ClientServer) clientConfig(res http.ResponseWriter, req *http.Request) (int, []byte) {
 	servers := make([]SeedServer, 0, 4)
 	if c.conf.GamePort != 0 {
 		servers = append(servers, SeedServer{c.conf.GetHostname(), c.conf.GamePort})
@@ -72,7 +76,7 @@ func (c *ClientServer) seedServers(res http.ResponseWriter, req *http.Request) (
 		}
 	}
 	res.Header().Set("Content-Type", "application/json")
-	if data, err := json.Marshal(servers); err == nil {
+	if data, err := json.Marshal(ClientConfig{servers}); err == nil {
 		return 200, data
 	} else {
 		return 500, []byte(`{"error":500}`)
