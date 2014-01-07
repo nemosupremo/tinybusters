@@ -22,4 +22,4 @@ _testmain.go
 *.exe
 
 client/local.html
-client/lib/local
+client/scripts/lib/local/
