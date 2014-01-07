@@ -8966,9 +8966,11 @@ function World(options){
      * @param {Body} bodyB
      */
     this.impactEvent = {
-        type: "impact",
-        bodyA : null,
-        bodyB : null,
+        type   : "impact",
+        bodyA  : null,
+        bodyB  : null,
+        shapeA : null,
+        shapeB : null,
     };
 
     /**
@@ -9243,6 +9245,8 @@ World.prototype.internalStep = function(dt){
             if(eq.firstImpact){
                 ev.bodyA = eq.bi;
                 ev.bodyB = eq.bj;
+                ev.shapeA = eq.shapeA;
+                ev.shapeB = eq.shapeB;
                 this.emit(ev);
             }
         }
